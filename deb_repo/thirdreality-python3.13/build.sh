@@ -7,7 +7,7 @@ REBUILD=false
 CLEAN=false
 
 PYTHON_VERSION="3.13" # main version
-INSTALL_PYTHON_VERSION="3.13.3" # sub verion, for download
+INSTALL_PYTHON_VERSION="3.13.6" # sub verion, for download
 python3_dir="/usr/local/python3" # install target directory
 
 SCRIPT="ThirdReality"

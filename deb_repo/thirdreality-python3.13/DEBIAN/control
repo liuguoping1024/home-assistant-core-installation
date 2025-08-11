@@ -1,5 +1,5 @@
 Package: t3r-python3.13
-Version: 3.13.3
+Version: 3.13.6
 Section: utils
 Priority: optional
 Architecture: arm64

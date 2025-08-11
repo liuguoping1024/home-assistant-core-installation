@@ -15,10 +15,6 @@ if [ "$1" = "remove" ]; then
         echo "Stopping matter-server.service"
         systemctl stop matter-server.service
     fi
-
-    rm -rf /usr/local/bin/python3 /usr/local/bin/python
-    rm -rf /usr/local/bin/pip3 /usr/local/bin/pip
-    rm -rf /usr/local/bin/python3-config
 fi
 
 exit 0

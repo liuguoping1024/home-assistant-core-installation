@@ -1,0 +1,362 @@
+#!/srv/homeassistant/bin/python3
+# -*- coding: utf-8 -*-
+
+import asyncio
+import json
+import os
+import subprocess
+from datetime import datetime
+import uuid
+
+class OTBRError(Exception):
+    pass
+
+class GetBorderAgentIdNotSupportedError(OTBRError):
+    pass
+
+class OTBR:
+    def __init__(self, timeout: int = 10) -> None:
+        # Set timeout for commands
+        self._timeout = timeout
+        self._ot_ctl_path = "/usr/sbin/ot-ctl"
+
+    async def get_active_dataset_tlvs(self) -> bytes | None:
+        try:
+            # Execute command: /usr/sbin/ot-ctl dataset active -x
+            cmd = [self._ot_ctl_path, "dataset", "active", "-x"]
+            process = subprocess.run(cmd, capture_output=True, text=True, timeout=self._timeout)
+            
+            # Check if command was successful
+            if process.returncode != 0:
+                print(f"Command failed with return code {process.returncode}")
+                print(f"Error: {process.stderr}")
+                
+                # If error, check if we need to initialize the dataset
+                if "error" in process.stdout.lower() or "error" in process.stderr.lower():
+                    print("Dataset may not be initialized. User should run initialization commands.")
+                return None
+                
+            # Process the output
+            data = process.stdout.strip()
+            #print(f"Raw active dataset response: {data}")
+            
+            # Extract the hex string from the output (first line before 'Done')
+            if data:
+                lines = data.split('\n')
+                for line in lines:
+                    if line and line != "Done":
+                        try:
+                            return bytes.fromhex(line.strip())
+                        except ValueError as exc:
+                            continue
+            
+            print("No valid dataset found in response")
+            return None
+                
+        except subprocess.TimeoutExpired:
+            print(f"Command timed out after {self._timeout} seconds")
+            raise OTBRError(f"command timeout after {self._timeout} seconds")
+        except Exception as e:
+            print(f"Error getting active dataset: {e}")
+            raise OTBRError(f"command error: {e}") from e
+
+    async def get_border_agent_id(self) -> bytes:
+        """Get the border agent ID."""
+        try:
+            # Execute command: /usr/sbin/ot-ctl ba id
+            cmd = [self._ot_ctl_path, "ba", "id"]
+            process = subprocess.run(cmd, capture_output=True, text=True, timeout=self._timeout)
+            
+            # Check if command was successful
+            if process.returncode != 0:
+                print(f"Command failed with return code {process.returncode}")
+                print(f"Error: {process.stderr}")
+                raise GetBorderAgentIdNotSupportedError
+                
+            # Process the output
+            data = process.stdout.strip()
+            #print(f"Raw border agent ID response: {data}")
+            
+            # Extract the hex string from the output (first line before 'Done')
+            if data:
+                lines = data.split('\n')
+                for line in lines:
+                    if line and line != "Done":
+                        try:
+                            return bytes.fromhex(line.strip())
+                        except ValueError as exc:
+                            continue
+            
+            raise OTBRError("No valid border agent ID found in response")
+                
+        except subprocess.TimeoutExpired:
+            print(f"Command timed out after {self._timeout} seconds")
+            raise OTBRError(f"command timeout after {self._timeout} seconds")
+        except Exception as e:
+            print(f"Error getting border agent ID: {e}")
+            raise OTBRError(f"command error: {e}") from e
+
+    async def get_extended_address(self) -> bytes:
+        """Get extended address (EUI-64).
+
+        Raises if the command fails or if the response is invalid.
+        """
+        try:
+            # Execute command: /usr/sbin/ot-ctl extaddr
+            cmd = [self._ot_ctl_path, "extaddr"]
+            process = subprocess.run(cmd, capture_output=True, text=True, timeout=self._timeout)
+            
+            # Check if command was successful
+            if process.returncode != 0:
+                print(f"Command failed with return code {process.returncode}")
+                print(f"Error: {process.stderr}")
+                raise OTBRError(f"command failed with return code {process.returncode}")
+                
+            # Process the output
+            data = process.stdout.strip()
+            print(f"Raw extended address response: {data}")
+            
+            # Extract the hex string from the output (first line before 'Done')
+            if data:
+                lines = data.split('\n')
+                for line in lines:
+                    if line and line != "Done":
+                        try:
+                            return bytes.fromhex(line.strip())
+                        except ValueError as exc:
+                            continue
+            
+            raise OTBRError("No valid extended address found in response")
+                
+        except subprocess.TimeoutExpired:
+            print(f"Command timed out after {self._timeout} seconds")
+            raise OTBRError(f"command timeout after {self._timeout} seconds")
+        except Exception as e:
+            print(f"Error getting extended address: {e}")
+            raise OTBRError(f"command error: {e}") from e
+
+    async def create_active_dataset(self) -> None:
+        """Initialize and create a new active dataset.
+        
+        This function performs a sequence of OpenThread commands to initialize
+        and activate a new dataset for the Thread network.
+        """
+        commands = [
+            {"step": "Step1: dataset init new", "args": ["dataset", "init", "new"]},
+            {"step": "Step2: dataset", "args": ["dataset"]},
+            {"step": "Step3: dataset commit active", "args": ["dataset", "commit", "active"]},
+            {"step": "Step4: ifconfig up", "args": ["ifconfig", "up"]},
+            {"step": "Step5: thread start", "args": ["thread", "start"]}
+        ]
+        
+        try:
+            for cmd_info in commands:
+                print(f"{cmd_info['step']}")
+                cmd = [self._ot_ctl_path] + cmd_info['args']
+                process = subprocess.run(cmd, capture_output=True, text=True, timeout=self._timeout)
+                
+                # Check if command was successful
+                if process.returncode != 0:
+                    print(f"Command failed with return code {process.returncode}")
+                    print(f"Warn: {process.stderr}")
+                else:
+                    # Process the output
+                    data = process.stdout.strip()
+                    print(f"Command output: {data}")
+                    
+        except subprocess.TimeoutExpired:
+            print(f"Command timed out after {self._timeout} seconds")
+            raise OTBRError(f"command timeout after {self._timeout} seconds")
+        except Exception as e:
+            print(f"Error creating active dataset: {e}")
+            raise OTBRError(f"command error: {e}") from e
+
+
+async def update_thread_core_config(self, border_agent_id) -> int:
+    """/var/lib/homeassistant/homeassistant/.storage/core.config_entries"""
+    try:
+        file_path = "/var/lib/homeassistant/homeassistant/.storage/core.config_entries"
+        
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            print("core.config_entries file does not exist, ignoring...")
+            return 0  # 忽略
+        else:
+            # 读取现有文件
+            with open(file_path, 'r') as file:
+                config_data = json.load(file)
+        
+        # 检查是否已存在otbr域
+        otbr_exists = False
+        thread_exists = False
+        
+        for entry in config_data["data"]["entries"]:
+            if entry.get("domain") == "otbr":
+                otbr_exists = True
+            if entry.get("domain") == "thread":
+                thread_exists = True
+        
+        print("Checking core.config_entries:", otbr_exists, thread_exists)
+
+        # 如果不存在otbr域，添加它
+        if not otbr_exists:
+            otbr_entry = {
+                "created_at": datetime.utcnow().isoformat() + "+00:00",
+                "data": {
+                    "url": "http://localhost:8081"
+                },
+                "disabled_by": None,
+                "discovery_keys": {},
+                "domain": "otbr",
+                "entry_id": str(uuid.uuid4()).replace("-", "")[:25],
+                "minor_version": 1,
+                "modified_at": datetime.utcnow().isoformat() + "+00:00",
+                "options": {},
+                "pref_disable_new_entities": False,
+                "pref_disable_polling": False,
+                "source": "user",
+                "subentries": [],
+                "title": "Open Thread Border Router",
+                "unique_id": border_agent_id.hex(),
+                "version": 1
+            }
+            config_data["data"]["entries"].append(otbr_entry)
+        
+        # 如果不存在thread域，添加它
+        if not thread_exists:
+            thread_entry = {
+                "created_at": datetime.utcnow().isoformat() + "+00:00",
+                "data": {},
+                "disabled_by": None,
+                "discovery_keys": {
+                    "zeroconf": [
+                        {
+                            "domain": "zeroconf",
+                            "key": [],
+                            "version": 1
+                        }
+                    ]
+                },
+                "domain": "thread",
+                "entry_id": str(uuid.uuid4()).replace("-", "")[:25],
+                "minor_version": 1,
+                "modified_at": datetime.utcnow().isoformat() + "+00:00",
+                "options": {},
+                "pref_disable_new_entities": False,
+                "pref_disable_polling": False,
+                "source": "zeroconf",
+                "subentries": [],
+                "title": "Thread",
+                "unique_id": None,
+                "version": 1
+            }
+            config_data["data"]["entries"].append(thread_entry)
+        
+        # 写入文件
+        with open(file_path, 'w') as file:
+            json.dump(config_data, file, indent=2)
+        
+        return 0  # 成功
+    except Exception as e:
+        print(f"Failed to update thread core config: {e}")
+        return -1  # 失败
+
+async def update_thread_database(self, border_agent_id, extended_address, active_dataset) -> int:
+    """/var/lib/homeassistant/homeassistant/.storage/thread.datasets"""
+    try:
+        file_path = "/var/lib/homeassistant/homeassistant/.storage/thread.datasets"
+        
+        # 检查文件是否存在且包含preferred_border_agent_id
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as file:
+                try:
+                    data = json.load(file)
+                    if "data" in data and "datasets" in data["data"]:
+                        for dataset in data["data"]["datasets"]:
+                            if "preferred_border_agent_id" in dataset:
+                                print("preferred_border_agent_id already exists, no changes needed")
+                                return 0
+                except json.JSONDecodeError:
+                    # File exists but is not valid JSON, will be replaced
+                    pass
+        
+        # 创建新的UUID用于dataset ID
+        dataset_id = str(uuid.uuid4()).replace("-", "")[:25]
+        
+        # 创建新的数据结构
+        thread_data = {
+            "version": 1,
+            "minor_version": 4,
+            "key": "thread.datasets",
+            "data": {
+                "datasets": [
+                    {
+                        "created": datetime.utcnow().isoformat() + "+00:00",
+                        "id": dataset_id,
+                        "preferred_border_agent_id": border_agent_id.hex(),
+                        "preferred_extended_address": extended_address.hex(),
+                        "source": "otbr",
+                        "tlv": active_dataset.hex() if active_dataset else ""
+                    }
+                ],
+                "preferred_dataset": dataset_id
+            }
+        }
+        
+        # 写入文件
+        with open(file_path, 'w') as file:
+            json.dump(thread_data, file, indent=2)
+        
+        return 0  # 成功
+    except Exception as e:
+        print(f"Failed to update thread database: {e}")
+        return -1  # 失败
+
+async def main():
+    print("Initializing OTBR with command-line interface")
+    api = OTBR(timeout=10)
+
+    try:
+        # Get border agent ID
+        border_agent_id = await api.get_border_agent_id()
+        print("Current border agent ID:", border_agent_id.hex())
+
+        # Get or create active dataset
+        active_dataset = await api.get_active_dataset_tlvs()
+        if active_dataset:
+            print("Current active dataset:", active_dataset.hex())
+        else:
+            print("No active dataset found. Creating new dataset...")
+            await api.create_active_dataset()
+            active_dataset = await api.get_active_dataset_tlvs()
+            if active_dataset:
+                print("New active dataset:", active_dataset.hex())
+
+        # Get extended address
+        extended_address = await api.get_extended_address()
+        print("Current extended address:", extended_address.hex())
+
+        # Update configuration if active dataset exists
+        if active_dataset is None:
+            print("No active operation dataset.")
+        else:
+            # Update configuration files
+            core_config_result = await update_thread_core_config(api, border_agent_id)
+            database_result = await update_thread_database(api, border_agent_id, extended_address, active_dataset)
+          
+            print(f"Update thread core config result: {'Success' if core_config_result == 0 else 'Failed'}") 
+            print(f"Update thread database result: {'Success' if database_result == 0 else 'Failed'}")
+            
+    except OTBRError as e:
+        print(f"OTBR error: {e}")
+    except GetBorderAgentIdNotSupportedError:
+        print("Getting border agent ID is not supported.")
+    except asyncio.TimeoutError:
+        print("Request timeout.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+# 运行异步main函数
+asyncio.run(main())
+

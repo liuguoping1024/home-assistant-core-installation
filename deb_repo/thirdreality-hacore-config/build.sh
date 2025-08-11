@@ -98,7 +98,7 @@ if [ ! -d "${output_dir}/var/lib/homeassistant" ]; then
         print_info "No /etc/hassio.json found, skipping copy."
     fi
 
-    cp ${current_dir}/automation-robot.conf ${output_dir}/etc/
+    #cp ${current_dir}/automation-robot.conf ${output_dir}/etc/
 fi
 
 print_info "Start to build hacore-config_${version}.deb ..."

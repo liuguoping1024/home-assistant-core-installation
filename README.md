@@ -13,4 +13,5 @@ Home Assistant’s Supervised installation method, which involves running your o
 
 ```
 
-<img width="800" alt="image" src="https://github.com/user-attachments/assets/64b98952-ee5f-4530-9876-fb168b69548c" />
+<img width="798" height="444" alt="image" src="https://github.com/user-attachments/assets/ae369e29-1257-4831-8217-cbe8abe54712" />
+

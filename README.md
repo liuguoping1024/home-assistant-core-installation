@@ -16,5 +16,4 @@ We have deprecated the following installation methods:
 <img width="798" height="444" alt="image" src="https://github.com/user-attachments/assets/ae369e29-1257-4831-8217-cbe8abe54712" />
 
 - python3_3.13.3.deb(3.13.3) [Download python3](https://github.com/liuguoping1024/home-assistant-core-installation/releases/download/2025.8.0/python3_3.13.6.deb)
-- hacore-config_2025.6.0.deb [Download hacore-config](https://github.com/liuguoping1024/home-assistant-core-installation/releases/download/2025.8.0/hacore-config_2025.6.0.deb)
 - hacore_2025.8.1.deb [Download hacore](https://github.com/liuguoping1024/home-assistant-core-installation/releases/download/2025.8.1/hacore_2025.8.1.deb)

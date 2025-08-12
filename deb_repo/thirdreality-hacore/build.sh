@@ -29,10 +29,10 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # 全局定义版本号
-export HOME_ASSISTANT_VERSION="2025.8.0"
+export HOME_ASSISTANT_VERSION="2025.8.1"
 
 #home-assistant-frontend==20250509.0
-export FRONTEND_VERSION="20250806.0" 
+export FRONTEND_VERSION="20250811.0" 
 
 #python-matter-server==7.0.0
 export MATTER_SERVER_VERSION="8.0.0"
@@ -57,7 +57,7 @@ if [[ "$CLEAN" == true ]]; then
     rm -rf /lib/systemd/system/matter-server.service
 
     rm -rf /usr/local/bin/chip-ota-provider-app
-    rm -rf /usr/local/bin/zigpy_help.sh
+    #rm -rf /usr/local/bin/zigpy_help.sh
 
     rm -rf /var/lib/homeassistant/*.* || true
 
@@ -186,14 +186,19 @@ if [ ! -e "${home_assistant_path}/bin/hass" ]; then
         pyspeex-noise==1.0.2
 
     # homeassistant.components.homeassistant_hardware
-    # homeassistant.components.hardware
     python3 -m pip install universal-silabs-flasher==0.0.31 ha-silabs-firmware-client==0.2.0 psutil-home-assistant==0.0.1
-    
+
+    # homeassistant.components.hardware
+    python3 -m pip install psutil-home-assistant==0.0.1
+
     # homeassistant.components.thread
     python3 -m pip install python-otbr-api==2.7.0 pyroute2==0.7.5
 
     # homeassistant.components.zha
-    python3 -m pip install zigpy-cli==1.1.0 zha==0.0.66
+    python3 -m pip install zha==0.0.68
+
+    # https://pypi.org/project/zigpy-cli/
+    python3 -m pip install zigpy-cli
 
     #cd ${home_assistant_path}/lib64/python3.13/site-packages; python3 -m pip install git+https://github.com/bouffalolab/zigpy-blz/@dev
     
